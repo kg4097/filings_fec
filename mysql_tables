@@ -1,0 +1,91 @@
+drop table fec_committees;
+
+drop table fec_candidates;
+
+drop table fec_filings;
+
+CREATE TABLE atlas_fec.fec_committees (
+    committee_id varchar(10),
+	committee_name varchar(75),
+    candidate_id varchar(10),
+    designation varchar(1),
+	atlas_id int UNSIGNED NOT NULL
+);
+
+CREATE TABLE atlas_fec.fec_candidates (
+	district varchar(3),
+    incumbent_challenge varchar(1),
+    office varchar(1),
+    state varchar(2),
+    party varchar(6),
+    candidate_id varchar(10),
+    first_name varchar(50),
+	middle_name varchar(50),
+	last_name varchar(50),
+	atlas_id int
+);
+
+
+CREATE TABLE atlas_fec.fec_filings (
+    report_type varchar(4),
+    total_receipts int,
+	committee_id varchar(10),
+	debts_owed_by_committee int,
+	cycle varchar(4),
+	cash_on_hand_end_period int,
+    form_type varchar(3),
+	total_disbursements int,
+	receipt_date varchar(10),
+	atlas_id int
+);
+
+SELECT * FROM fec_committees;
+
+SELECT * FROM fec_candidates;
+
+SELECT * FROM fec_filings;
+
+
+CREATE TABLE atlas_fec.fec_committees_inc (
+    fec_id varchar(10),
+	committee_name varchar(75),
+    candidate_id varchar(10),
+    designation varchar(1),
+	atlas_id MEDIUMINT NOT NULL AUTO_INCREMENT PRIMARY KEY
+);
+
+CREATE TABLE atlas_fec.fec_candidates_inc (
+	district varchar(3),
+    incumbent_challenge varchar(1),
+    office varchar(1),
+    state varchar(2),
+    party varchar(6),
+    candidate_id varchar(10),
+    first_name varchar(50),
+	middle_name varchar(50),
+	last_name varchar(50),
+	atlas_id int
+);
+
+CREATE TABLE atlas_fec.fec_filings_inc (
+    report_type varchar(4),
+    total_receipts int,
+	committee_id varchar(10),
+	debts_owed_by_committee int,
+	cycle varchar(4),
+	cash_on_hand_end_period int,
+    form_type varchar(3),
+	total_disbursements int,
+	receipt_date varchar(10),
+	atlas_id int
+);
+
+SELECT * FROM fec_committees_inc;
+
+SELECT * FROM fec_candidates_inc;
+
+SELECT * FROM fec_filings_inc;
+
+SELECT * FROM fec_committees com
+JOIN fec_candidates can on com.candidate_id = can.candidate_id
+JOIN fec_filings fil on com.committee_id = fil.committee_id;
