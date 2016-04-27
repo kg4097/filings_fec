@@ -7,7 +7,7 @@ import time
 import fileinput
 import MySQLdb
 import pandas as pd
-
+import datetime
 #disabled warning regarding insecure platform, should import appropriate modules to
 #make platform secure
 requests.packages.urllib3.disable_warnings()
@@ -56,7 +56,7 @@ def committees():
 	count = 0
 
 	#start at 1 becasue otherwise calls page = 0, which doesn't exist
-	for u in url_list[1:2]:#len(p)]:
+	for u in url_list[1:len(p)]:
 		#print u so you know page that loop is on
 		print u
 		response_2 = requests.get(u)
@@ -97,11 +97,11 @@ def committees():
 	time = clean['timestamp'].max()
 	print time
 
-	mydb = MySQLdb.connect(host = 'atlasproject-stage.cslkfacnmbbr.us-east-1.rds.amazonaws.com',
+	mydb = MySQLdb.connect(host = host_name,
 						port = 3306,
-						user = 'katri',
+						user = user_name,
 						passwd = pas, 
-						db = 'atlas_fec',
+						db = data_base,
 						unix_socket = 'tmp/mysql.sock') 
 
 	cursor = mydb.cursor()
@@ -180,11 +180,11 @@ def candidates():
 	time = clean['timestamp'].max()
 	print time
 
-	mydb = MySQLdb.connect(host = 'atlasproject-stage.cslkfacnmbbr.us-east-1.rds.amazonaws.com',
+	mydb = MySQLdb.connect(host = host_name,
 						port = 3306,
-						user = 'katri',
+						user = user_name,
 						passwd = pas, 
-						db = 'atlas_fec',
+						db = data_base,
 						unix_socket = 'tmp/mysql.sock') 
 
 	cursor = mydb.cursor()
@@ -293,8 +293,8 @@ def candidates():
 def filings():
 
 	#must mannually change report_year if you want to retrieve past data
-	url_base_f = 'https://api.open.fec.gov/v1/filings/?%s&api_key=%s&per_page=100&report_year=%s'\
-				 % (form_type, key, now.year)
+	url_base_f = 'https://api.open.fec.gov/v1/filings/?form_type=F3&form_type=F3P&api_key=%s&per_page=100&report_year=%s'\
+				 % (key, now.year)
 
 	response_f = requests.get(url_base_f)
 	data_f = response_f.json()
@@ -314,8 +314,8 @@ def filings():
 
 	for page_f in p_list_f:
 		#must mannually change report_year if you want to retrieve past data
-		url_f = 'https://api.open.fec.gov/v1/filings/?%s&api_key=%s&per_page=100&amendment_indicator=N\
-				&page=%s&amendment_indicator=N&report_year=%s' % (form_type, key, page_f, now.year)
+		url_f = 'https://api.open.fec.gov/v1/filings/?form_type=F3&form_type=F3P&api_key=%s&per_page=100&amendment_indicator=N\
+				&page=%s&amendment_indicator=N&report_year=%s' % (key, page_f, now.year)
 		url_list_f.append(url_f)
 		
 	#if you change the file path csv document name, 
@@ -366,18 +366,21 @@ def filings():
 	time = clean['timestamp'].max()
 	print time
 
-	mydb = MySQLdb.connect(host = 'atlasproject-stage.cslkfacnmbbr.us-east-1.rds.amazonaws.com',
+	mydb = MySQLdb.connect(host = host_name,
 						port = 3306,
-						user = 'katri',
+						user = user_name,
 						passwd = pas, 
-						db = 'atlas_fec',
+						db = data_base,
 						unix_socket = 'tmp/mysql.sock') 
+
 	cursor = mydb.cursor()
 
 	csv_data = csv.reader(file('fec_file1.csv'))
 
 	firstline = True
 	secondline = True
+
+	cursor.execute('TRUNCATE TABLE fec_filings_inc')
 
 	for row in csv_data:
 		#skips importation of first line, which contains column names
@@ -392,127 +395,20 @@ def filings():
 			row_list = [row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]]
 			print row_list
 
-			cursor.execute('INSERT IGNORE INTO fec_filings(\
+			cursor.execute('INSERT IGNORE INTO fec_filings_inc(\
 					report_type, total_receipts, committee_id, debts_owed_by_committee, cycle, cash_on_hand_end_period,\
 					form_type, total_disbursements, receipt_date)' \
 					'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)', row_list)
 
+			cursor.execute('INSERT IGNORE INTO fec_filings SELECT * FROM fec_filings_inc')
+
 	mydb.commit()
 	cursor.close()
-
 
 
 #committees()
-candidates()
+#candidates()
 #filings()
 
 
-
-
-def db_candidates():
-	mydb = MySQLdb.connect(host = 'atlasproject-stage.cslkfacnmbbr.us-east-1.rds.amazonaws.com',
-						port = 3306,
-						user = 'katri',
-						passwd = pas, 
-						db = 'atlas_fec',
-						unix_socket = 'tmp/mysql.sock') 
-	cursor = mydb.cursor()
-
-	csv_data = csv.reader(file('fec_cand1.csv'))
-
-	firstline = True
-	secondline = True
-
-	for row in csv_data:
-		#skips importation of first line, which contains column names
-		if firstline:
-			firstline = False
-			continue
-		if secondline:
-			secondline = False
-			continue
-		#the following if statements accomodate for errors in the formatting of candidate names
-		#and format the names into three columns by first, middle, and last name
-		if ', ' in row[2]:
-			row_17 = row[2].title().split(', ')
-			first_mid = row_17[1]
-			last = row_17[0]
-		
-			if ' ' in first_mid:
-				mid = first_mid.split(' ')
-				first = mid[0]
-				mid = mid[1]
-
-				row_list_1 = [row[0], row[1], row[3], row[4], row[5], row[6], first, mid, last]
-				print row_list_1
-
-				cursor.execute('INSERT IGNORE INTO fec_candidates(\
-					district, incumbent_challenge, office, state, party, candidate_id, first_name, middle_name, last_name)' \
-					'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)', row_list_1)
-			else:
-				first = first_mid
-				mid = ''
-				
-				row_list_2 = [row[0], row[1], row[3], row[4], row[5], row[6], first, mid, last]
-				print row_list_2
-	
-				cursor.execute('INSERT INTO fec_candidates(\
-					district, incumbent_challenge, office, state, party, candidate_id, first_name, middle_name, last_name)' \
-					'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)', row_list_2)
-		
-		elif ',' in row[2]:
-			row_17 = row[2].title().split(',')
-			first_mid = row_17[1]
-			last = row_17[0]
-		
-			if ' ' in first_mid:
-				mid = first_mid.split(' ')
-				first = mid[0]
-				mid = mid[1]
-
-				row_list_1 = [row[0], row[1], row[3], row[4], row[5], row[6], first, mid, last]
-				print row_list_1
-
-				cursor.execute('INSERT INTO fec_candidates(\
-					district, incumbent_challenge, office, state, party, candidate_id, first_name, middle_name, last_name)' \
-					'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)', row_list_1)
-			else:
-				first = first_mid
-				mid = ''
-				
-				row_list_2 = [row[0], row[1], row[3], row[4], row[5], row[6], first, mid, last]
-				print row_list_2
-
-				cursor.execute('INSERT INTO fec_candidates(\
-					district, incumbent_challenge, office, state, party, candidate_id, first_name, middle_name, last_name)' \
-					'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)', row_list_2)
-		elif ' ' in row[2]:
-			row_17 = row[2].title().split(' ')
-			first_mid = row_17[1]
-			last = row_17[0]
-		
-			if ' ' in first_mid:
-				mid = first_mid.split(' ')
-				first = mid[0]
-				mid = mid[1]
-
-				row_list_1 = [row[0], row[1], row[3], row[4], row[5], row[6], first, mid, last]
-				print row_list_1
-
-				cursor.execute('INSERT INTO fec_candidates(\
-					district, incumbent_challenge, office, state, party, candidate_id, first_name, middle_name, last_name)' \
-					'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)', row_list_1)
-			else:
-				first = first_mid
-				mid = ''
-				
-				row_list_2 = [row[0], row[1], row[3], row[4], row[5], row[6], first, mid, last]
-				print row_list_2
-
-				cursor.execute('INSERT INTO fec_candidates(\
-					district, incumbent_challenge, office, state, party, candidate_id, first_name, middle_name, last_name)' \
-					'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)', row_list_2)
-		
-	mydb.commit()
-	cursor.close()
 
